@@ -1,75 +1,46 @@
-const express = require('express')
+const express = require('express');
 const app = express();
+const cors = require("cors");
+const bodyParser = require('body-parser');
+const morgan = require("morgan");
 
-const usuario = [
+app.use(cors());
+app.use(express.json());
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(morgan("dev"));
 
-    {
-        id: 1,
-        nome: "Bleno",
-        email: "bleno@gmail.com",
-        senha: "123",
-    },
+const rotaUsuario = require("./routes/rotaUsuario");
 
-    {
-        id: 2,
-        nome: "Felipe",
-        email: "felipe@gmail.com",
-        senha: "123",
-    },
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
 
-    {
-        id: 3,
-        nome: "Nero",
-        email: "nero@gmail.com",
-        senha: "123",
-    },
-
-    {
-        id: 4,
-        nome: "Carlinhos",
-        email: "carlinhos@gmail.com",
-        senha: "123",
+    res.header(
+        "Access-Control-Allow-Headers",
+        "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+    );
+    
+    if (req.method === "OPTIONS") {
+        res.header("Access-Control-Allow-Methods", "PUT, PATCH, DELETE, GET");
+        return res.status(200).send({});
     }
-
-]
-app.get("/", (require, res, next) => {
-
-    res.json(usuario)
-
-})
-
-app.get("/usuario", (require, res, next) => {
-
-    let nomes = [];
-    usuario.map((linha) => {
-
-        nomes.push({
-
-            nome: linha.nome,
-            email: linha.email
-
-        })
-
-    })
-    res.json(nomes)
-
-})
-
-app.post("/usuario", (require, res, next) => {
-    const id = require.body.id;
-    const nome = require.body.nome;
-    const email = require.body.email;
-    const senha = require.body.senha;
-    const dados = [{
-        id,
-        nome,
-        email,
-        senha
-    }]
-
-    console.log ();
-
+    next();
 });
 
+app.use("/usuario", rotaUsuario);
 
-module.exports = app
+app.use((req, res, next) => {
+    const erro = new Error("Não encontrado");
+    erro.status = 404;
+    next(erro);
+});
+
+app.use((error, req, res, next) => {
+    res.status(error.status || 500);
+    return res.json({
+        erro: {
+            mensagem: error.message
+        }
+    });
+});
+
+module.exports = app; // corrigido de "module.exports = app pfvr" para "module.exports = app;"
