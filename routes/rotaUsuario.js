@@ -1,6 +1,7 @@
 const express = require("express")
 const router = express.Router();
 
+const sqlite3 = require("sqlite3").verbose();
 const usuario = [
 
     {
@@ -32,13 +33,13 @@ const usuario = [
     }
 
 ]
-router.get("/", (require, res, next) => {
+router.get("/", (req, res, next) => {
 
     res.json(usuario)
 
 })
 
-router.get("/usuario", (require, res, next) => {
+router.get("/", (req, res, next) => {
 
     let nomes = [];
     usuario.map((linha) => {
@@ -55,22 +56,31 @@ router.get("/usuario", (require, res, next) => {
 
 })
 
-router.post("/usuario", (require, res, next) => {
-    const id = require.body.id;
+router.post("/", (req, res, next) => {
+
+    const db = new sqlite3.Database("database.db");
+    const { nome, email, senha } = req.body;
+
+    db.serialize(() => {
+        db.run("CREATE TABLE IF NOT EXISTS usuario (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, email TEXT UNIQUE, senha TEXT ) ")
+        const insertUsuario = db.prepare("INSERT INTO usuario (nome, email, senha) VALUES (?,?,?)")
+        insertUsuario.run(nome, email, senha);
+        insertUsuario.finalize();
+    })
+
+    res.status(200).send({ mensagem: "Salvo com Sucesso" })
+
+});
+
+router.put("/", (req, res, next) => {
+    const id = req.body.id;
 
     res.send({ id: id })
 
 });
 
-router.put("/usuario", (require, res, next) => {
-    const id = require.body.id;
-
-    res.send({ id: id })
-
-});
-
-router.delete("/usuario/:id", (require, res, next) => {
-    const id = require.params;
+router.delete("/:id", (req, res, next) => {
+    const id = req.params;
 
     res.send({ id: id })
 
