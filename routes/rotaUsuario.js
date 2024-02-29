@@ -2,6 +2,9 @@ const express = require("express")
 const router = express.Router();
 
 const sqlite3 = require("sqlite3").verbose();
+
+const db = new sqlite3.Database("database.db");
+
 const usuario = [
 
     {
@@ -33,9 +36,20 @@ const usuario = [
     }
 
 ]
+
 router.get("/", (req, res, next) => {
 
-    res.json(usuario)
+    db.all("SELECT * FROM usuario", (error, rows) => {
+        if (error) {
+            return res.status(500).send({
+                error: error.message
+            });
+        }
+        res.status(200).send({
+            mensagem: "Aqui está a lista de usuários",
+            usuarios: rows
+        })
+    })
 
 })
 
@@ -58,7 +72,6 @@ router.get("/", (req, res, next) => {
 
 router.post("/", (req, res, next) => {
 
-    const db = new sqlite3.Database("database.db");
     const { nome, email, senha } = req.body;
 
     db.serialize(() => {
@@ -66,6 +79,14 @@ router.post("/", (req, res, next) => {
         const insertUsuario = db.prepare("INSERT INTO usuario (nome, email, senha) VALUES (?,?,?)")
         insertUsuario.run(nome, email, senha);
         insertUsuario.finalize();
+    })
+
+    process.on("SIGINT", () => {
+        db.close((err) => {
+            if (err) {
+                return res.status(304).send(err.message);
+            }
+        })
     })
 
     res.status(200).send({ mensagem: "Salvo com Sucesso" })
@@ -82,7 +103,19 @@ router.put("/", (req, res, next) => {
 router.delete("/:id", (req, res, next) => {
     const id = req.params;
 
-    res.send({ id: id })
+    db.run("DELETE FROM usuario WHERE id = ?", id, (error) => {
+        if (error) {
+            return res.status(500).send({
+                error: error.message
+            });
+        }
+
+        res.status(200).send({
+            mensagem: "Cadastrado deletado com successo",
+         
+        })
+
+    });
 
 });
 
