@@ -11,6 +11,8 @@ app.use(morgan("dev"));
 
 const rotaUsuario = require("./routes/rotaUsuario");
 const rotaProduto = require("./routes/rotaProduto");
+const rotaEntrada = require("./routes/rotaEntrada");
+
 
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
@@ -19,7 +21,7 @@ app.use((req, res, next) => {
         "Access-Control-Allow-Headers",
         "Origin, X-Requested-With, Content-Type, Accept, Authorization"
     );
-    
+
     if (req.method === "OPTIONS") {
         res.header("Access-Control-Allow-Methods", "PUT, PATCH, DELETE, GET");
         return res.status(200).send({});
@@ -29,6 +31,8 @@ app.use((req, res, next) => {
 
 app.use("/usuario", rotaUsuario);
 app.use("/produto", rotaProduto);
+app.use("/entrada", rotaEntrada);
+
 
 app.use((req, res, next) => {
     const erro = new Error("Não encontrado");
