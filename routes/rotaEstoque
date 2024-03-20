@@ -1,0 +1,82 @@
+const express = require("express");
+const router = express.Router();
+const sqlite3 = require("sqlite3").verbose();
+const db = new sqlite3.Database("database.db");
+
+db.run("CREATE TABLE IF NOT EXISTS estoque (id INTEGER PRIMARY KEY AUTOINCREMENT, id_produto, quantidade REAL, valor_unitario REAL)", (createTableError) => {
+    if (createTableError) {
+        return res.status(500).send({
+            error: createTableError.message
+        });
+    }
+
+    // O restante do código, se necessário...
+
+
+});
+
+router.get("/", (req, res, next) => {
+    db.all("SELECT * FROM estoque INNER JOIN produto ON estoque.id_produto = produto.id", (error, rows) => {
+
+        if (error) {
+            return res.status(500).send({
+                error: error.message
+            });
+        }
+        res.status(200).send({
+            mensagem: "Lista estoque",
+            estoque: rows
+        });
+    });
+});
+
+
+
+router.post('/', (req, res) => {
+    const { idproduto, quantidade, valorunitario } = req.body;
+
+    // Inserir os dados da entrada na nova tabela
+    db.run(`INSERT INTO estoque (id_produto, quantidade, valor_unitario) VALUES (?, ?, ?, ?)`,
+        [idproduto, quantidade, valorunitario],
+        function (insertError) {
+            if (insertError) {
+                return res.status(500).send({
+                    error: insertError.message,
+                    response: null
+                });
+            }
+
+            res.status(201).send({
+                mensagem: "Estoque Registrado!",
+                estoqueProduto: {
+                    id: this.lastID,
+                    idproduto: idproduto,
+                    quantidade: quantidade,
+                    valorunitario: valorunitario,
+                }
+            });
+        });
+});
+
+router.delete("/:id", (req, res, next) => {
+    const { id } = req.params;
+
+    db.run("DELETE FROM estoque WHERE id = ?", id, (error) => {
+        if (error) {
+            return res.status(500).send({
+                error: error.message
+            });
+        }
+
+        res.status(200).send({
+            mensagem: "Estoque deletado com successo",
+
+        })
+
+    });
+
+});
+
+
+
+module.exports = router;
