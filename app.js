@@ -38,6 +38,8 @@ app.use("/saida", rotaSaida);
 app.use("/estoque", rotaEstoque);
 
 
+
+
 app.use((req, res, next) => {
     const erro = new Error("Não encontrado");
     erro.status = 404;
