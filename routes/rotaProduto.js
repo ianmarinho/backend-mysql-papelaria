@@ -1,20 +1,51 @@
 const express = require("express");
 const router = express.Router();
-const sqlite3 = require("sqlite3").verbose();
-const db = new sqlite3.Database("database.db");
-
-// Remova a criação da tabela daqui e coloque-a em algum lugar que seja executado uma vez no início do servidor.
+const mysql = require("../mysql").pool; // Supondo que "mysql" é o pool de conexão
 
 router.get("/", (req, res, next) => {
-    db.all("SELECT * FROM produto", (error, rows) => {
+    mysql.getConnection((error, connection) => {
         if (error) {
             return res.status(500).send({
                 error: error.message
             });
         }
-        res.status(200).send({
-            mensagem: "Aqui está a lista de produtos",
-            produto: rows
+
+        connection.query("SELECT * FROM produto", (error, rows) => {
+            connection.release(); // Liberar a conexão após a consulta
+            if (error) {
+                return res.status(500).send({
+                    error: error.message
+                });
+            }
+            
+            res.status(200).send({
+                mensagem: "Aqui está a lista de produtos",
+                produto: rows
+            });
+        });
+    });
+});
+
+router.get("/:id", (req, res, next) => {
+    const id = req.params.id
+    mysql.getConnection((error, connection) => {
+        if (error) {
+            return res.status(500).send({
+                error: error.message
+            });
+        }
+
+        connection.query("SELECT * FROM produto where id_ =?",[id], (error, rows) => {
+            connection.release(); // Liberar a conexão após a consulta
+            if (error) {
+                return res.status(500).send({
+                    error: error.message
+                });
+            }
+            res.status(200).send({
+                mensagem: "Aqui está a lista de produtos",
+                produto: rows
+            });
         });
     });
 });
@@ -23,7 +54,7 @@ router.post('/', (req, res, next) => {
     const { status, descricao, estoque_minimo, estoque_maximo } = req.body;
 
     // Verifica se todas as variáveis estão definidas
-    if (status === undefined || descricao === undefined || estoque_minimo === undefined || estoque_maximo === undefined) {
+    if (!status || !descricao || !estoque_minimo || !estoque_maximo) {
         return res.status(400).send({
             mensagem: "Falha ao cadastrar produto. Certifique-se de fornecer todos os campos necessários."
         });
@@ -31,19 +62,17 @@ router.post('/', (req, res, next) => {
 
     // Validação dos campos
     let msg = [];
-    if (!status || status.length < 3) {
+    if (status.length < 3) {
         msg.push({ mensagem: "Status inválido! Deve ter pelo menos 3 caracteres." });
     }
 
-    if (!descricao || descricao.trim() === "") {
+    if (!descricao.trim()) {
         msg.push({ mensagem: "Coloque a procedência do produto." });
     }
 
     // Validação para verificar se estoque_minimo e estoque_maximo são números
     if (isNaN(estoque_minimo) || isNaN(estoque_maximo)) {
         msg.push({ mensagem: "Estoque mínimo e máximo devem ser números válidos." });
-    } else {
-        // Se desejar, você pode adicionar verificações específicas para os valores numéricos, como >= 0, etc.
     }
 
     if (msg.length > 0) {
@@ -54,7 +83,7 @@ router.post('/', (req, res, next) => {
     }
 
     // Verifica se o produto já está cadastrado
-    db.get(`SELECT * FROM produto WHERE status = ? AND descricao = ?`, [status, descricao], (error, produtoExistente) => {
+    mysql.getConnection((error, connection) => {
         if (error) {
             return res.status(500).send({
                 error: error.message,
@@ -62,70 +91,106 @@ router.post('/', (req, res, next) => {
             });
         }
 
-        if (produtoExistente) {
-            return res.status(400).send({
-                mensagem: "Produto já cadastrado."
-            });
-        }
-
-        // Insere o novo produto no banco de dados
-        db.run(`INSERT INTO produto (status, descricao, estoque_minimo, estoque_maximo) VALUES (?, ?, ?, ?)`,
-            [status, descricao, estoque_minimo, estoque_maximo], function (insertError) {
-                if (insertError) {
-                    return res.status(500).send({
-                        error: insertError.message,
-                        response: null
-                    });
-                }
-                res.status(201).send({
-                    mensagem: "Produto cadastrado com sucesso!",
-                    produto: {
-                        id: this.lastID,
-                        status,
-                        descricao,
-                        estoque_minimo,
-                        estoque_maximo
-                    }
+        connection.query(`SELECT * FROM produto WHERE status = ? AND descricao = ?`, [status, descricao], (error, results) => {
+            if (error) {
+                connection.release();
+                return res.status(500).send({
+                    error: error.message,
+                    response: null
                 });
-            });
+            }
+
+            if (results.length > 0) {
+                connection.release();
+                return res.status(400).send({
+                    mensagem: "Produto já cadastrado."
+                });
+            }
+
+            // Insere o novo produto no banco de dados
+            connection.query(`INSERT INTO produto (status, descricao, estoque_minimo, estoque_maximo) VALUES (?, ?, ?, ?)`,
+                [status, descricao, estoque_minimo, estoque_maximo], (error, result) => {
+                    connection.release();
+                    if (error) {
+                        return res.status(500).send({
+                            error: error.message,
+                            response: null
+                        });
+                    }
+                    res.status(201).send({
+                        mensagem: "Produto cadastrado com sucesso!",
+                        produto: {
+                            id: result.insertId,
+                            status,
+                            descricao,
+                            estoque_minimo,
+                            estoque_maximo
+                        }
+                    });
+                });
+        });
     });
 });
 
 router.put("/", (req, res, next) => {
     const { id, status, descricao, estoque_minimo, estoque_maximo } = req.body;
 
-    db.run(" UPDATE produto SET status = ?, descricao = ?, estoque_minimo = ?, estoque_maximo =? WHERE id = ?",
-        [status, descricao, estoque_minimo, estoque_maximo, id], function (error) {
+    if (!id || !status || !descricao || !estoque_minimo || !estoque_maximo) {
+        return res.status(400).send({
+            mensagem: "Falha ao atualizar produto. Certifique-se de fornecer todos os campos necessários."
+        });
+    }
 
-            if (error) {
-                return res.status(500).send({
-                    error: error.message
-                });
-            }
-            res.status(200).send({
-                mensagem: "Cadastro alterado com sucesso",
-            })
-
-        })
-
-});
-
-router.delete("/:id", (req, res, next) => {
-    const { id } = req.params;
-
-    db.run("DELETE FROM produto WHERE id = ?", id, (error) => {
+    mysql.getConnection((error, connection) => {
         if (error) {
             return res.status(500).send({
                 error: error.message
             });
         }
 
-        res.status(200).send({
-            mensagem: "Cadastrado deletado com successo",
-
-        })
-
+        connection.query("UPDATE produto SET status = ?, descricao = ?, estoque_minimo = ?, estoque_maximo = ? WHERE id = ?",
+            [status, descricao, estoque_minimo, estoque_maximo, id], (error, result) => {
+                connection.release();
+                if (error) {
+                    return res.status(500).send({
+                        error: error.message
+                    });
+                }
+                res.status(200).send({
+                    mensagem: "Cadastro alterado com sucesso"
+                });
+            });
     });
-
 });
+
+router.delete("/:id", (req, res, next) => {
+    const { id } = req.params;
+
+    if (!id) {
+        return res.status(400).send({
+            mensagem: "ID do produto não fornecido."
+        });
+    }
+
+    mysql.getConnection((error, connection) => {
+        if (error) {
+            return res.status(500).send({
+                error: error.message
+            });
+        }
+
+        connection.query("DELETE FROM produto WHERE id = ?", id, (error, result) => {
+            connection.release();
+            if (error) {
+                return res.status(500).send({
+                    error: error.message
+                });
+            }
+            res.status(200).send({
+                mensagem: "Cadastro deletado com sucesso"
+            });
+        });
+    });
+});
+
 module.exports = router;

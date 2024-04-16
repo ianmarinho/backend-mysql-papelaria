@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const mysql = require("../mysql").pool; // Supondo que "mysql" é o pool de conexão
-
 const bcrypt = require('bcrypt'); // Para hash de senha
 const jwt = require('jsonwebtoken'); // Para geração de token JWT
 
@@ -71,11 +70,13 @@ router.post('/login', (req, res, next) => {
                     error: error.message
                 });
             }
+
             if (rows.length < 1) {
                 return res.status(401).send({
                     mensagem: "Usuário não encontrado."
                 });
             }
+            
             const usuario = rows[0];
             bcrypt.compare(senha, usuario.senha, (bcryptError, result) => {
                 if (bcryptError) {
@@ -98,6 +99,7 @@ router.post('/login', (req, res, next) => {
         });
     });
 });
+
 
 // Rota para cadastrar um novo usuário
 router.post('/', (req, res, next) => {

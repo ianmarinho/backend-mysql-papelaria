@@ -1,120 +1,143 @@
 const express = require("express");
 const router = express.Router();
-const sqlite3 = require("sqlite3").verbose();
-const db = new sqlite3.Database("database.db");
-
-db.run("CREATE TABLE IF NOT EXISTS entrada (id INTEGER PRIMARY KEY AUTOINCREMENT, id_produto, quantidade REAL, valor_unitario REAL, data DATE)", (createTableError) => {
-    if (createTableError) {
-        return res.status(500).send({
-            error: createTableError.message
-        });
-    }
-
-    // O restante do código, se necessário...
-
-
-});
+const mysql = require("../mysql").pool;
 
 router.get("/", (req, res, next) => {
-    db.all(`SELECT 
-    entrada.id as id, 
-    entrada.id_produto as id_produto,
-    entrada.quantidade as quantidade,
-    entrada.data as data,
-    produto.descricao as descricao,
-    entrada.valor_unitario as valor_unitario
-    FROM entrada 
-    INNER JOIN produto 
-    ON entrada.id_produto = produto.id`, (error, rows) => {
-
+    mysql.getConnection((error, connection) => {
         if (error) {
             return res.status(500).send({
                 error: error.message
             });
         }
-        res.status(200).send({
-            mensagem: "Aqui está a lista de entrada",
-            entrada: rows
+
+        connection.query(`
+            SELECT 
+                entrada.id_ as id_, 
+                entrada.id_produto as id_produto,
+                entrada.quantidade as quantidade,
+                entrada.data_entrada as data_entrada,
+                produto.descricao as descricao,
+                entrada.valor_unitario as valor_unitario
+            FROM entrada 
+            INNER JOIN produto 
+            ON entrada.id_produto = produto.id_
+        `, (error, rows) => {
+            connection.release(); // Release the connection after query execution
+            if (error) {
+                return res.status(500).send({
+                    error: error.message
+                });
+            }
+            res.status(200).send({
+                mensagem: "Aqui está a lista de entrada",
+                entrada: rows
+            });
         });
     });
 });
 
-
-// Rota para registrar uma entrada de produtos no estoque
 router.post('/', (req, res) => {
     const { idproduto, quantidade, valorunitario, dataentrada } = req.body;
 
-    // Inserir os dados da entrada na nova tabela
-    db.run(`INSERT INTO entrada (id_produto, quantidade, valor_unitario, data) VALUES (?, ?, ?, ?)`,
-        [idproduto, quantidade, valorunitario, dataentrada],
-        function (insertError) {
-            if (insertError) {
+    mysql.getConnection((error, connection) => {
+        if (error) {
+            return res.status(500).send({
+                error: error.message
+            });
+        }
+
+        connection.query(
+        'INSERT INTO `entrada` ( `id_produto`, `quantidade`, `valor_unitario`, `data_entrada`) VALUES ( ?, ?, ?, ?)'
+        , [idproduto, quantidade, valorunitario, dataentrada], (error, result) => {
+         
+         
+            connection.release(); // Release the connection after query execution
+            if (error) {
                 return res.status(500).send({
-                    error: insertError.message,
+                    error: error.message,
                     response: null
                 });
             }
 
-            atualizarestoque(idproduto, quantidade, valorunitario)
+            // atualizarEstoque(idproduto, quantidade, valorunitario, dataentrada);
 
             res.status(201).send({
                 mensagem: "Entrada Registrada!",
                 entradaProduto: {
-                    id: this.lastID,
-                    idproduto: idproduto,
+                    id_: result.insertId,
+                    id_produto: idproduto,
                     quantidade: quantidade,
-                    valorunitario: valorunitario,
-                    dataentrada: dataentrada
+                    valor_unitario: valorunitario,
+                    data_entrada: dataentrada
                 }
             });
         });
+    });
 });
 
 router.delete("/:id", (req, res, next) => {
     const { id } = req.params;
 
-    db.run("DELETE FROM entrada WHERE id = ?", id, (error) => {
+    mysql.getConnection((error, connection) => {
         if (error) {
             return res.status(500).send({
                 error: error.message
             });
         }
 
-        res.status(200).send({
-            mensagem: "Cadastro deletado com successo",
+        connection.query("DELETE FROM entrada WHERE id_ = ?", id, (error, result) => {
+            connection.release(); // Release the connection after query execution
+            if (error) {
+                return res.status(500).send({
+                    error: error.message
+                });
+            }
 
-        })
-
+            res.status(200).send({
+                mensagem: "Cadastro deletado com sucesso"
+            });
+        });
     });
-
 });
 
-function atualizarestoque(idproduto, quantidade, valorunitario) {
-    db.all('SELECT * FROM estoque WHERE id_produto=?', [idproduto], (error, rows) => {
-        if (error) {
-            return false;
-        }
-        if (rows.length > 0) {
+// function atualizarEstoque(idproduto, quantidade, valorunitario) {
+//     mysql.getConnection((error, connection) => {
+//         if (error) {
+//             console.error("Erro ao obter conexão:", error.message);
+//             return;
+//         }
 
-            let qtde = rows [0] .quantidade;
-            qtde = parseFloat(qtde) + parseFloat (quantidade);
-            
+//         connection.query('SELECT * FROM estoque WHERE id_produto=?', [idproduto], (error, rows) => {
+//             connection.release(); // Release the connection after query execution
+//             if (error) {
+//                 console.error("Erro ao executar consulta:", error.message);
+//                 return;
+//             }
 
-            db.run("UPDATE estoque SET quantidade=?, valor_unitario=? WHERE id_produto=?",
-                [qtde, valorunitario, idproduto], (error) => {
-                    if (error) {
-                        return false
-                    }
-                });
+//             if (rows.length > 0) {
+//                 let qtde = parseFloat(rows[0].quantidade) + parseFloat(quantidade);
 
-        } else {
-            db.serialize(() => {
-                const insertEstoque = db.prepare("INSERT INTO estoque(id_produto, quantidade, valor_unitario) VALUES(?,?,?)");
-                insertEstoque.run(idproduto, quantidade, valorunitario);
-                insertEstoque.finalize();
-            });
-        }
-    });
-    return true;
-}
+//                 connection.query(`
+//                     UPDATE estoque 
+//                     SET quantidade=?, valor_unitario=? 
+//                     WHERE id_produto=?
+//                 `, [qtde, valorunitario, idproduto], (error, result) => {
+//                     if (error) {
+//                         console.error("Erro ao atualizar estoque:", error.message);
+//                     }
+//                 });
+//             } else {
+//                 connection.query(`
+//                     INSERT INTO estoque(id_produto, quantidade, valor_unitario) 
+//                     VALUES (?, ?, ?)
+//                 `, [idproduto, quantidade, valor_unitario], (error, result) => {
+//                     if (error) {
+//                         console.error("Erro ao inserir estoque:", error.message);
+//                     }
+//                 });
+//             }
+//         });
+//     });
+// }
+
 module.exports = router;
