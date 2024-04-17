@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "description": "Api de controle de estoque de uma papelaria",
   "main": "index.js",
+  "engines": {
+    "node": "14.x"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon server.js"
+    "start": "node app.js"
   },
   "keywords": [],
   "author": "Ian",
