@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const mysql = require("../mysql").pool; // Supondo que "mysql" é o pool de conexão
+const mysql = require("../mysql").pool;// Supondo que "mysql" é o pool de conexão
 const bcrypt = require('bcrypt'); // Para hash de senha
 const jwt = require('jsonwebtoken'); // Para geração de token JWT
 
@@ -104,6 +104,9 @@ router.post('/login', (req, res, next) => {
 // Rota para cadastrar um novo usuário
 router.post('/', (req, res, next) => {
     const { nome, email, senha } = req.body;
+
+    console.log(req.body);
+
     // Verificação e validação dos campos omitida por brevidade
     mysql.getConnection((error, conn) => {
         if (error) {

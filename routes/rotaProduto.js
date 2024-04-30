@@ -17,7 +17,7 @@ router.get("/", (req, res, next) => {
                     error: error.message
                 });
             }
-            
+
             res.status(200).send({
                 mensagem: "Aqui está a lista de produtos",
                 produto: rows
@@ -28,6 +28,9 @@ router.get("/", (req, res, next) => {
 
 router.get("/:id", (req, res, next) => {
     const id = req.params.id
+
+    console.log(req.body);
+
     mysql.getConnection((error, connection) => {
         if (error) {
             return res.status(500).send({
@@ -35,9 +38,11 @@ router.get("/:id", (req, res, next) => {
             });
         }
 
-        connection.query("SELECT * FROM produto where id_ =?",[id], (error, rows) => {
+        connection.query("SELECT * FROM produto where id_ =?", [id], (error, rows) => {
             connection.release(); // Liberar a conexão após a consulta
             if (error) {
+                console.log("passando na linha 80")
+                console.log(msg)
                 return res.status(500).send({
                     error: error.message
                 });
@@ -52,9 +57,10 @@ router.get("/:id", (req, res, next) => {
 
 router.post('/', (req, res, next) => {
     const { status, descricao, estoque_minimo, estoque_maximo } = req.body;
-
+    console.log(req.body);
     // Verifica se todas as variáveis estão definidas
     if (!status || !descricao || !estoque_minimo || !estoque_maximo) {
+
         return res.status(400).send({
             mensagem: "Falha ao cadastrar produto. Certifique-se de fornecer todos os campos necessários."
         });
@@ -76,6 +82,9 @@ router.post('/', (req, res, next) => {
     }
 
     if (msg.length > 0) {
+
+        console.log("passando na linha 80")
+        console.log(msg)
         return res.status(400).send({
             mensagem: "Falha ao cadastrar produto.",
             erros: msg
@@ -117,6 +126,7 @@ router.post('/', (req, res, next) => {
                             response: null
                         });
                     }
+
                     res.status(201).send({
                         mensagem: "Produto cadastrado com sucesso!",
                         produto: {
@@ -135,6 +145,8 @@ router.post('/', (req, res, next) => {
 router.put("/", (req, res, next) => {
     const { id, status, descricao, estoque_minimo, estoque_maximo } = req.body;
 
+    console.log(req.body);
+
     if (!id || !status || !descricao || !estoque_minimo || !estoque_maximo) {
         return res.status(400).send({
             mensagem: "Falha ao atualizar produto. Certifique-se de fornecer todos os campos necessários."
@@ -143,12 +155,14 @@ router.put("/", (req, res, next) => {
 
     mysql.getConnection((error, connection) => {
         if (error) {
+            console.log("passando na linha 80")
+            console.log(msg)
             return res.status(500).send({
                 error: error.message
             });
         }
 
-        connection.query("UPDATE produto SET status = ?, descricao = ?, estoque_minimo = ?, estoque_maximo = ? WHERE id = ?",
+        connection.query("UPDATE produto SET status = ?, descricao = ?, estoque_minimo = ?, estoque_maximo = ? WHERE id_ = ?",
             [status, descricao, estoque_minimo, estoque_maximo, id], (error, result) => {
                 connection.release();
                 if (error) {
@@ -162,11 +176,10 @@ router.put("/", (req, res, next) => {
             });
     });
 });
-
 router.delete("/:id", (req, res, next) => {
     const { id } = req.params;
 
-    if (!id) {
+    if (!id || id === "") {
         return res.status(400).send({
             mensagem: "ID do produto não fornecido."
         });
@@ -174,14 +187,16 @@ router.delete("/:id", (req, res, next) => {
 
     mysql.getConnection((error, connection) => {
         if (error) {
+            console.log("Erro ao conectar no banco MySQL: " + error.message);
             return res.status(500).send({
                 error: error.message
             });
         }
-
-        connection.query("DELETE FROM produto WHERE id = ?", id, (error, result) => {
+        
+        connection.query("DELETE FROM produto WHERE id_ = ?", [id], (error, result) => {
             connection.release();
             if (error) {
+                console.log("Erro ao deletar: " + error.message);
                 return res.status(500).send({
                     error: error.message
                 });
@@ -192,5 +207,6 @@ router.delete("/:id", (req, res, next) => {
         });
     });
 });
+
 
 module.exports = router;
