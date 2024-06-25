@@ -10,7 +10,7 @@ router.get("/", (req, res, next) => {
             });
         }
 
-        connection.query("SELECT * FROM produto", (error, rows) => {
+        connection.query("SELECT * FROM Produtos", (error, rows) => {
             connection.release(); // Liberar a conexão após a consulta
             if (error) {
                 return res.status(500).send({
@@ -20,7 +20,7 @@ router.get("/", (req, res, next) => {
 
             res.status(200).send({
                 mensagem: "Aqui está a lista de produtos",
-                produto: rows
+                produtos: rows
             });
         });
     });

@@ -1,10 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const mysql = require("../mysql").pool;// Supondo que "mysql" é o pool de conexão
-const bcrypt = require('bcrypt'); // Para hash de senha
-const jwt = require('jsonwebtoken'); // Para geração de token JWT
+const mysql = require("../mysql").pool;
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
-// Rota para listar todos os usuários
 router.get("/", (req, res, next) => {
     mysql.getConnection((error, conn) => {
         if (error) {
@@ -12,10 +11,11 @@ router.get("/", (req, res, next) => {
                 error: error.message
             });
         }
-        
-        conn.query("SELECT * FROM usuario", (error, rows) => {
-            conn.release(); // Liberar a conexão após o uso
+
+        conn.query("SELECT * FROM Usuarios", (error, rows) => {
+            conn.release();
             if (error) {
+                console.log(error.message)
                 return res.status(500).send({
                     error: error.message
                 });
@@ -28,7 +28,6 @@ router.get("/", (req, res, next) => {
     });
 });
 
-// Rota para obter um usuário específico por ID
 router.get("/:id", (req, res, next) => {
     const { id } = req.params;
     mysql.getConnection((error, conn) => {
@@ -37,9 +36,9 @@ router.get("/:id", (req, res, next) => {
                 error: error.message
             });
         }
-        
-        conn.query("SELECT * FROM usuario WHERE id = ?", [id], (error, rows) => {
-            conn.release(); // Liberar a conexão após o uso
+
+        conn.query("SELECT * FROM Usuarios WHERE id = ?", [id], (error, rows) => {
+            conn.release();
             if (error) {
                 return res.status(500).send({
                     error: error.message
@@ -47,24 +46,27 @@ router.get("/:id", (req, res, next) => {
             }
             res.status(200).send({
                 mensagem: "Aqui está o usuário com ID " + id,
-                usuario: rows[0] // Se houver, retornar o primeiro usuário encontrado
+                usuario: rows[0]
             });
         });
     });
 });
 
-// Rota para fazer login
+// Chave secreta para assinar o token (mantenha-a segura)
+const chaveSecreta = 'w*2kxTmqvbg^4mKtb9Fk4LdX%Rp#X6!F';
+
 router.post('/login', (req, res, next) => {
     const { email, senha } = req.body;
+
     mysql.getConnection((error, conn) => {
         if (error) {
             return res.status(500).send({
                 error: error.message
             });
         }
-        
-        conn.query("SELECT * FROM usuario WHERE email = ?", [email], (error, rows) => {
-            conn.release(); // Liberar a conexão após o uso
+
+        conn.query("SELECT * FROM Usuarios WHERE Email = ?", [email], (error, rows) => {
+            conn.release();
             if (error) {
                 return res.status(500).send({
                     error: error.message
@@ -76,9 +78,10 @@ router.post('/login', (req, res, next) => {
                     mensagem: "Usuário não encontrado."
                 });
             }
-            
+
             const usuario = rows[0];
-            bcrypt.compare(senha, usuario.senha, (bcryptError, result) => {
+
+            bcrypt.compare(senha, usuario.Senha, (bcryptError, result) => {
                 if (bcryptError) {
                     return res.status(500).send({
                         error: bcryptError.message
@@ -89,11 +92,19 @@ router.post('/login', (req, res, next) => {
                         mensagem: "Senha incorreta."
                     });
                 }
-                // Gerar token JWT
-                const token = jwt.sign({ id: usuario.id, email: usuario.email }, 'secreto', { expiresIn: '1h' });
+
+                // Criação do token com o ID do usuário
+                //const token = jwt.sign({ id: usuario.id }, chaveSecreta, { expiresIn: '1h' });
+                const usuario = {
+                    id: rows[0].ID,
+                    nome: rows[0].Nome,
+                    email:rows[0].Email
+                }
+
                 res.status(200).send({
                     mensagem: "Login bem sucedido.",
-                    token: token
+                    usuario
+                  
                 });
             });
         });
@@ -101,72 +112,77 @@ router.post('/login', (req, res, next) => {
 });
 
 
-// Rota para cadastrar um novo usuário
 router.post('/', (req, res, next) => {
-    const { nome, email, senha } = req.body;
-
-    console.log(req.body);
-
-    // Verificação e validação dos campos omitida por brevidade
+    const { nome, email, senha, tipo, cep, logradouro, complemento, bairro, localidade, uf, cpf } = req.body;
     mysql.getConnection((error, conn) => {
+
         if (error) {
             return res.status(500).send({
                 error: error.message
             });
         }
-        
+
+
+
         bcrypt.hash(senha, 8, (hashError, hashedPassword) => {
+
             if (hashError) {
                 return res.status(500).send({
                     error: hashError.message
                 });
             }
-            conn.query(`INSERT INTO usuario (nome, email, senha) VALUES (?, ?, ?)`, [nome, email, hashedPassword], (insertError, result) => {
-                conn.release(); // Liberar a conexão após o uso
-                if (insertError) {
-                    return res.status(500).send({
-                        error: insertError.message
+            conn.query(
+                `INSERT INTO Usuarios (Nome, Email, Senha, Tipo, cep,  logradouro, complemento, bairro, localidade, uf, CPF) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [nome, email, hashedPassword, tipo, cep, logradouro, complemento, bairro, localidade, uf, cpf],
+                (insertError, result) => {
+
+                    conn.release();
+                    if (insertError) {
+                        return res.status(500).send({
+                            error: insertError.message
+                        });
+                    }
+                    res.status(201).send({
+                        mensagem: "Cadastro criado com sucesso!",
+                        usuario: {
+                            id: result.insertId,
+                            nome: nome,
+                            email: email
+                        }
                     });
                 }
-                res.status(201).send({
-                    mensagem: "Cadastro criado com sucesso!",
-                    usuario: {
-                        id: result.insertId,
-                        nome: nome,
-                        email: email
-                    }
-                });
-            });
+            );
         });
     });
 });
 
-// Rota para atualizar um usuário existente
 router.put("/", (req, res, next) => {
-    const { id, nome, email, senha } = req.body;
-    // Validação dos campos omitida por brevidade
+    const { id, nome, email, senha, tipo, endereco, cep, logradouro, complemento, bairro, localidade, uf, cpf } = req.body;
     mysql.getConnection((error, conn) => {
         if (error) {
             return res.status(500).send({
                 error: error.message
             });
         }
-        
-        conn.query("UPDATE usuario SET nome = ?, email = ?, senha = ? WHERE id = ?", [nome, email, senha, id], (updateError, result) => {
-            conn.release(); // Liberar a conexão após o uso
-            if (updateError) {
-                return res.status(500).send({
-                    error: updateError.message
+
+        conn.query(
+            "UPDATE Usuarios SET nome = ?, email = ?, senha = ?, tipo = ?, endereco = ?, cep = ?, logradouro = ?, complemento = ?, bairro = ?, localidade = ?, uf = ?, cpf = ? WHERE id = ?",
+            [nome, email, senha, tipo, endereco, cep, logradouro, complemento, bairro, localidade, uf, cpf, id],
+            (updateError, result) => {
+                conn.release();
+                if (updateError) {
+                    return res.status(500).send({
+                        error: updateError.message
+                    });
+                }
+                res.status(200).send({
+                    mensagem: "Cadastro alterado com sucesso"
                 });
             }
-            res.status(200).send({
-                mensagem: "Cadastro alterado com sucesso"
-            });
-        });
+        );
     });
 });
 
-// Rota para deletar um usuário existente
 router.delete("/:id", (req, res, next) => {
     const { id } = req.params;
     mysql.getConnection((error, conn) => {
@@ -175,9 +191,9 @@ router.delete("/:id", (req, res, next) => {
                 error: error.message
             });
         }
-        
-        conn.query("DELETE FROM usuario WHERE id = ?", [id], (deleteError, result) => {
-            conn.release(); // Liberar a conexão após o uso
+
+        conn.query("DELETE FROM Usuarios WHERE id = ?", [id], (deleteError, result) => {
+            conn.release();
             if (deleteError) {
                 return res.status(500).send({
                     error: deleteError.message
