@@ -10,7 +10,7 @@ app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(morgan("dev"));
 
-const rotaUsuario = require("./routes/rotaUsuario");
+const rotaCliente = require("./routes/rotaCliente");
 const rotaProduto = require("./routes/rotaProduto");
 const rotaEntrada = require("./routes/rotaEntrada");
 const rotaSaida = require("./routes/rotaSaida");
@@ -33,7 +33,7 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use("/usuario", rotaUsuario);
+app.use("/cliente", rotaCliente);
 app.use("/produto", rotaProduto);
 app.use("/entrada", rotaEntrada);
 app.use("/saida", rotaSaida);
